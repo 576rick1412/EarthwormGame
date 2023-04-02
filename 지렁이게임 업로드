@@ -1,0 +1,318 @@
+#define UP 72
+#define DOWN 80
+#define LEFT 75
+#define RIGHT 77
+
+#include <iostream>
+#include <conio.h>
+#include <Windows.h>
+#include<cstdlib>
+#include<ctime>
+#include <list> 
+
+
+//===========< 기본 세팅 >===========
+void gotoxy(int x, int y);      // 텍스트 좌표 설정
+void setColor(int color);       // 텍스트 색 설정
+void cursorOff();               // 커서 끄기
+void cursorOn();                // 커서 켜기
+union POS
+{
+    struct
+    {
+        int x;
+        int y;
+    };
+
+    int p[2];
+};
+
+//===========< 화면 >===========
+void StartTitle();
+void GameOverTitle();
+
+//===========< 게임 루프 >===========
+void GameLoop();                // 게임 루프 함수
+
+//===========< 키 입력 >===========
+void KeyInput();                // 키 입력 함수
+
+//===========< 이동 >===========
+void AutoMove();                // 자동 이동 함수
+void Tail();                    // 꼬리
+// rot = 0 : 위 / 1 : 아래 / 2 : 왼쪽 / 3 : 오른쪽
+int rot = 0;                    // 플레이어 진행방향
+int moveCount = 0;              // 플레이어 이동 횟수 카운트, 꼬리에 필요
+
+POS pos = { 50,15 };            // 플레이어 좌표
+POS setPos = { 50,15 };         // 이전 플레이어 좌표 저장
+
+int posX = 50, posY = 15;       
+
+//===========< 맵 >===========
+void DrawMap();
+int w1 = 10, w2 = 88;
+int h1 =  5, h2 = 25;
+
+//===========< 기타 >===========
+void MakeItem();
+
+//===========< 게임 설정 >===========
+bool isNotOver = true;          // 게임오버 여부
+bool isMakeItem = true;         // 아이템 생성 여부
+POS itemPos;                    // 아이템 위치
+int score = 0;                  // 점수 
+int sleepCool = 300;            // 이동 쿨타임
+POS tail[1000];                 // 꼬리 리스트
+
+int main()
+{
+    system("mode con cols=100 lines=30 | title 지렁이게임"); // 콘솔창 크기 및 제목 설정
+    
+    cursorOff();
+    StartTitle();
+    while (isNotOver)
+    {
+        GameLoop();
+    }
+
+    GameOverTitle();
+}
+
+void gotoxy(int x, int y)
+{
+    COORD pos = { x, y };
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
+}
+/*   0~15번
+    // 0-검정, 1- 파랑색, 2-초록색, 3-옥색, 4-빨간색, 5-자주색, 6-노랑
+    // 7-흰색, 8-회색, 9-연한 파란색, 10-연한 초록색, 11- 연한 옥색
+    // 12-연한 빨간색, 13-연한 자주색, 14-연한 노란색, 15-진한 흰색
+*/
+void setColor(int color)
+{
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+}
+void cursorOff() {
+    CONSOLE_CURSOR_INFO Information;
+    Information.dwSize = 1;
+    Information.bVisible = FALSE;
+
+    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &Information);
+}
+void cursorOn() {
+    CONSOLE_CURSOR_INFO Information;
+
+    Information.dwSize = 20;
+    Information.bVisible = TRUE;
+
+    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &Information);
+}
+
+void StartTitle()
+{
+    //22
+    setColor(4);
+    gotoxy(26,  8); printf("▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦");
+    gotoxy(26,  9); printf("▦                                        ▦");
+    gotoxy(26, 10); printf("▦                                        ▦");
+    gotoxy(26, 11); printf("▦              "); setColor(7);
+    gotoxy(42, 11); printf("지렁이키우기");      setColor(4);
+    gotoxy(54, 11); printf("              ▦");
+    gotoxy(26, 12); printf("▦                                        ▦");
+    gotoxy(26, 13); printf("▦                                        ▦");
+    gotoxy(26, 14); printf("▦                                        ▦");
+    gotoxy(26, 15); printf("▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦");
+
+    setColor(7);
+    gotoxy(34, 18); printf("계속하려면 아무키나 누르시오");
+
+    _getch();
+
+    system("cls");
+}
+
+void GameOverTitle()
+{
+    //22
+    setColor(4);
+    gotoxy(26, 8); printf("▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦");
+    gotoxy(26, 9); printf("▦                                        ▦");
+    gotoxy(26, 10); printf("▦                                        ▦");
+    gotoxy(26, 11); printf("▦              "); setColor(7);
+    gotoxy(42, 11); printf("게임    오버");      setColor(4);
+    gotoxy(54, 11); printf("              ▦");
+    gotoxy(26, 12); printf("▦                                        ▦");
+    gotoxy(26, 13); printf("▦                                        ▦");
+    gotoxy(26, 14); printf("▦                                        ▦");
+    gotoxy(26, 15); printf("▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦");
+
+    setColor(7);
+    gotoxy(34, 18); printf("계속하려면 아무키나 누르시오");
+
+    _getch();
+
+    system("cls");
+}
+
+void GameLoop()
+{
+    KeyInput();
+    DrawMap();
+    MakeItem();
+    AutoMove();
+    
+    system("cls");
+}
+
+void KeyInput()
+{
+    char c;
+    if (_kbhit())
+    {
+        c = _getch();
+        if (c == -32)
+        {
+            c = _getch();
+            switch (c)
+            {
+            case UP:
+                rot = 0;
+                break;
+            case DOWN:
+                rot = 1;
+                break;
+            case LEFT:
+                rot = 2;
+                break;
+            case RIGHT:
+                rot = 3;
+                break;
+            }
+        }
+    }
+}
+
+void AutoMove()
+{
+    setPos = pos;
+
+    switch (rot)
+    {
+    case 0:
+        pos.y--;
+        break;
+
+    case 1:
+        pos.y++;
+        break;
+
+    case 2:
+        pos.x -= 2;
+        break;
+
+    case 3:
+        pos.x += 2;
+        break;
+    }
+
+    // 맵 경계와 충돌
+    if(pos.x <= w1 || pos.x >= w2 ||
+       pos.y <= h1 || pos.y >= h2)
+    {
+        isNotOver = false;
+        return;
+    }
+
+    // 자기 꼬리와 충돌
+    for (int i = 0; i < score; i++)
+    {
+        if (pos.x == tail[i].x &&
+            pos.y == tail[i].y)
+        {
+            isNotOver = false;
+        }
+    }
+
+    // 아이템 획득
+    if (pos.x == itemPos.x &&
+        pos.y == itemPos.y)
+    {
+        isMakeItem = true;
+        score++;
+
+        // 50 이하로는 떨어지지 않게
+        if (sleepCool > 60)
+        {
+            sleepCool -= 10;
+        }
+    }
+
+    setColor(10);
+
+    gotoxy(pos.x, pos.y); printf("＠");
+
+    Tail();
+
+    setColor(7);
+
+    Sleep(sleepCool);
+}
+
+void Tail()
+{
+    for (int i = score; i > 0; i--)
+    {
+        tail[i] = tail[i - 1];
+    }
+
+    tail[0] = setPos;
+
+    for (int i = 0; i < score; i++)
+    {
+        gotoxy(tail[i].x, tail[i].y); printf("■");
+    }
+}
+
+void DrawMap()
+{
+    for (int i = w1; i <= w2; i += 2)
+    {
+        gotoxy(i, h1); printf("▦");
+        gotoxy(i, h2); printf("▦");
+    }
+
+    for (int i = h1; i <= h2; i++)
+    {
+        gotoxy(w1, i); printf("▦");
+        gotoxy(w2, i); printf("▦");
+    }
+
+    gotoxy(20, h2 + 1); printf("점수 : %d    /    현재속도 : %d", score, sleepCool);
+    gotoxy(20, h2 + 2); printf("아이템 위치 : X좌표 %d , Y좌표 %d", itemPos.x, itemPos.y);
+    gotoxy(20, h2 + 3); printf("플레이어 위치 : X좌표 %d , Y좌표 %d", pos.x, pos.y);
+    gotoxy(20, h2 + 4); printf("%d %d %d %d %d %d %d %d", 
+        tail[0].x, tail[0].y, tail[1].x, tail[1].y, tail[2].x, tail[2].y, tail[3].x, tail[3].y);
+}
+
+void MakeItem()
+{
+    if (isMakeItem)
+    {
+        isMakeItem = false;
+
+        srand(time(NULL));
+
+        itemPos.x = rand() % ((w2 - 2) - (w1 + 2) + 1) + (w1 + 2);
+        itemPos.y = rand() % ((h2 - 2) - (h1 + 2) + 1) + (h1 + 2);
+
+        if (itemPos.x % 2 == 1)
+        {
+            itemPos.x++;
+        }
+    }
+
+    setColor(6);
+    gotoxy(itemPos.x, itemPos.y); printf("♬");
+    setColor(7);
+}
